@@ -328,53 +328,53 @@ daemon_version_list = ['NOT-LOADED']
 daemon_last_fetch_time = 0.0
 
 
-def getDaemonReleases():
-    # retrieve latest formal release versions list from repo
-    global daemon_version_list
-    global daemon_last_fetch_time
+# def getDaemonReleases():
+#     # retrieve latest formal release versions list from repo
+#     global daemon_version_list
+#     global daemon_last_fetch_time
 
-    newVersionList = []
-    latestVersion = ''
+#     newVersionList = []
+#     latestVersion = ''
 
-    daemon_version_list = ['NOT-LOADED']  # mark as NOT fetched
-    error = False
-    try:
-        response = requests.request('GET', 'http://kz0q.com/daemon-releases', verify=False, timeout=10)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as exc:
-        print_line('- getDaemonReleases() RQST exception=({})'.format(exc), error=True)
-        error = True
+#     daemon_version_list = ['NOT-LOADED']  # mark as NOT fetched
+#     error = False
+#     try:
+#         response = requests.request('GET', 'http://kz0q.com/daemon-releases', verify=False, timeout=10)
+#         response.raise_for_status()
+#     except requests.exceptions.RequestException as exc:
+#         print_line('- getDaemonReleases() RQST exception=({})'.format(exc), error=True)
+#         error = True
 
-    if not error:
-        content = response.text
-        lines = content.split('\n')
-        for line in lines:
-            if len(line) > 0:
-                # print_line('- RLS Line=[{}]'.format(line), debug=True)
-                lineParts = line.split(' ')
-                # print_line('- RLS lineParts=[{}]'.format(lineParts), debug=True)
-                if len(lineParts) >= 2:
-                    currVersion = lineParts[0]
-                    rlsType = lineParts[1]
-                    if not currVersion in newVersionList:
-                        if not 'latest' in rlsType.lower():
-                            newVersionList.append(currVersion)  # append to list
-                        else:
-                            latestVersion = currVersion
+#     if not error:
+#         content = response.text
+#         lines = content.split('\n')
+#         for line in lines:
+#             if len(line) > 0:
+#                 # print_line('- RLS Line=[{}]'.format(line), debug=True)
+#                 lineParts = line.split(' ')
+#                 # print_line('- RLS lineParts=[{}]'.format(lineParts), debug=True)
+#                 if len(lineParts) >= 2:
+#                     currVersion = lineParts[0]
+#                     rlsType = lineParts[1]
+#                     if not currVersion in newVersionList:
+#                         if not 'latest' in rlsType.lower():
+#                             newVersionList.append(currVersion)  # append to list
+#                         else:
+#                             latestVersion = currVersion
 
-        if len(newVersionList) > 1:
-            newVersionList.sort()
-        if len(latestVersion) > 0:
-            if not latestVersion in newVersionList:
-                newVersionList.insert(0, latestVersion)  # append to list
+#         if len(newVersionList) > 1:
+#             newVersionList.sort()
+#         if len(latestVersion) > 0:
+#             if not latestVersion in newVersionList:
+#                 newVersionList.insert(0, latestVersion)  # append to list
 
-        daemon_version_list = newVersionList
-        print_line('- RQST daemon_version_list=({})'.format(daemon_version_list), debug=True)
-        daemon_last_fetch_time = time()    # record when we last fetched the versions
+#         daemon_version_list = newVersionList
+#         print_line('- RQST daemon_version_list=({})'.format(daemon_version_list), debug=True)
+#         daemon_last_fetch_time = time()    # record when we last fetched the versions
 
 
-getDaemonReleases()  # and load them!
-print_line('* daemon_last_fetch_time=({})'.format(daemon_last_fetch_time), debug=True)
+# getDaemonReleases()  # and load them!
+# print_line('* daemon_last_fetch_time=({})'.format(daemon_last_fetch_time), debug=True)
 
 
 # -----------------------------------------------------------------------------
