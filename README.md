@@ -1,14 +1,8 @@
 # RPi Reporter MQTT2HA Daemon
-**
-This is a modified version of the original script but it removed the constant pinging to kz0q.com which causes a huge amout of ping requests.**
 
-![Project Maintenance][maintenance-shield]
+This is a modified version of the original script, but it removes the constant pinging to kz0q.com, which causes a huge amount of ping requests. This has no reason to happen, as the project has been untouched for years. 
 
-[![GitHub Activity][commits-shield]][commits]
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-[![GitHub Release][releases-shield]][releases]
+This is forked from here https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon
 
 A simple Linux python script to query the Raspberry Pi on which it is running for various configuration and status values which it then reports via via [MQTT](https://projects.eclipse.org/projects/iot.mosquitto) to your [Home Assistant](https://www.home-assistant.io/) installation. This allows you to install and run this on each of your RPi's so you can track them all via your own Home Assistant Dashboard.
 
