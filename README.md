@@ -1,4 +1,6 @@
 # RPi Reporter MQTT2HA Daemon
+**
+This is a modified version of the original script but it removed the constant pinging to kz0q.com which causes a huge amout of ping requests.**
 
 ![Project Maintenance][maintenance-shield]
 
