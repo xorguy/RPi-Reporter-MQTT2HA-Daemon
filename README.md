@@ -561,39 +561,6 @@ Alternatively you can create a simple script which you can run any time you want
 
 **NOTE**: _the -b says 'since last boot' the --no-pager says just show it all without breaking it up into pages and requiring the enter key press for each page._
 
----
-
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
->
-> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./Docs/images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
-
----
-
-## Contributors
-
-This project is enjoyed by users in many countries. A number of these users have taken the time so submit **pull requests** which contribute changes/fixes to this project.
-
-Thank you to the following github users for taking the time to help make this project function better for all of us!:
-
-- [brunob45](https://github.com/brunob45) - report swap usage, fixes to MQTT topics for HA 2023.8 update
-- [hobbypunk90](https://github.com/hobbypunk90) - add commanding of RPi from HA
-- [OasisOfChaos](https://github.com/OasisOfChaos) - adjust temp. reporting so can work on non-RPi devices like Orange Pi
-- [nabeelmoeen](https://github.com/nabeelmoeen) - add memory usage as addiitonal sensor
-- [mcarlosro](https://github.com/mcarlosro) - add ip traffic rate for network interfaces
-- [Henry-Sir](https://github.com/Henry-Sir) - add cpu usage as addiitonal sensor
-- [woodmj74](https://github.com/woodmj74) - changes to reporting correct temperature units
-- [dflvunoooooo](https://github.com/dflvunoooooo) - changes to getting last update date
-- [hostcc](https://github.com/hostcc) - improved error handling with external commands
-- [frennkie](https://github.com/frennkie) - add compatibility with paho-mqtt 2.0.0
-- [kroecks](https://github.com/kroecks) - changes to sensor_name setup
-
-## Credits
-
-Thank you to Thomas Dietrich for providing a wonderful pattern for this project. His project, which I use and heartily recommend, is [miflora-mqtt-deamon](https://github.com/ThomDietrich/miflora-mqtt-daemon)
-
-Thanks to [synoniem](https://github.com/synoniem) for working through the issues with startup as a SystemV init script and for providing 'rpi-reporter' script itself and for identifying the need for support of other boot device forms.
-
----
 
 ## Disclaimer and Legal
 
