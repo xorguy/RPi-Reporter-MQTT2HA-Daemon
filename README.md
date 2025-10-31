@@ -1,8 +1,8 @@
 # RPi Reporter MQTT2HA Daemon
 
-This is a modified version of the original script, but it removes the constant pinging to kz0q.com, which causes a huge amount of ping requests. This has no reason to happen, as the project has been untouched for years. 
+This is a modified version of the original script, but it removes the constant pinging to kz0q.com, which causes a huge amount of ping requests. This has no reason to happen, as the project has been untouched for years.
 
-This is forked from here https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon
+This is forked from here <https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon>
 
 A simple Linux python script to query the Raspberry Pi on which it is running for various configuration and status values which it then reports via via [MQTT](https://projects.eclipse.org/projects/iot.mosquitto) to your [Home Assistant](https://www.home-assistant.io/) installation. This allows you to install and run this on each of your RPi's so you can track them all via your own Home Assistant Dashboard.
 
@@ -33,7 +33,7 @@ Additional pages:
 
 - Tested on Raspberry Pi's zero, 2, 3, and 4 with Jessie, Stretch, Buster, and Bullseye
 - Tested with Home Assistant v0.111.0 -> 2023.4.6
-- Tested with Mosquitto broker 
+- Tested with Mosquitto broker
 - Data is published via MQTT
 - MQTT discovery messages are sent so RPi's are automatically registered with Home Assistant (if MQTT discovery is enabled in your HA installation)
 - MQTT authentication support
@@ -191,7 +191,7 @@ Now that the extra packages are installed let's install our script and any remai
 
 ```shell
 # Get a copy of the repository
-sudo git clone https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon.git /opt/RPi-Reporter-MQTT2HA-Daemon
+sudo git clone https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon.git /opt/RPi-Reporter-MQTT2HA-Daemon
 
 # move into your new local repository
 cd /opt/RPi-Reporter-MQTT2HA-Daemon
@@ -212,7 +212,7 @@ sudo pip3 install -r requirements.txt
 
 #### Why are we checking-out the latest release?
 
-When I'm developing new features I'll work on a different branch thereby not affecting master. When they are tested I'll merge the development brach into master. However it is much easier to merge pull requests directly into master. This action will, for a short period of time, make the **master branch have possibly non-working code**!  You don't want this version until I've completed my testing of the new version and marked it as a new release. The clone gets you all versions while the checkout command moves your installation to the released version so you are running the latest fully tested code.  You can always check the [releases page](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/releases) to find out which is the latest. This also tells you what changes appeared in each release.
+When I'm developing new features I'll work on a different branch thereby not affecting master. When they are tested I'll merge the development brach into master. However it is much easier to merge pull requests directly into master. This action will, for a short period of time, make the **master branch have possibly non-working code**!  You don't want this version until I've completed my testing of the new version and marked it as a new release. The clone gets you all versions while the checkout command moves your installation to the released version so you are running the latest fully tested code.  You can always check the [releases page](https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/releases) to find out which is the latest. This also tells you what changes appeared in each release.
 
 ## Configuration
 
@@ -243,7 +243,7 @@ password = {your mqtt password if your setup requires one}
 
 Now that your config.ini is setup let's test!
 
-**NOTE:** *If you wish to support remote commanding of your RPi then you can find additional configuration steps in [Setting up RPi Control from Home Assistant](./RMTECTRL.md)  However, to simplifly your effort, please complete the following steps to ensure all is running as desired before you attempt to set up remote control.*
+**NOTE:** _If you wish to support remote commanding of your RPi then you can find additional configuration steps in [Setting up RPi Control from Home Assistant](./RMTECTRL.md)  However, to simplifly your effort, please complete the following steps to ensure all is running as desired before you attempt to set up remote control._
 
 ## Execution
 
@@ -289,7 +289,7 @@ $ daemon : daemon video
 #                 ^^^^^ now it is present
 ```
 
-*NOTE: Yes, `video` is correct. This appears to be due to our accessing the GPU temperatures.*
+_NOTE: Yes, `video` is correct. This appears to be due to our accessing the GPU temperatures._
 
 ### Choose Run Style
 
@@ -371,7 +371,7 @@ systemctl status isp-rpi-reporter.service
 
 ```
 
-**NOTE**: *Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above.*
+**NOTE**: _Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above._
 
 #### SysV init script commands to perform update
 
@@ -398,7 +398,7 @@ sudo /etc/init.d/rpi-reporter status
 
 ```
 
-**NOTE**: *Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above.*
+**NOTE**: _Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above._
 
 ## Integration
 
@@ -489,7 +489,6 @@ See Closed Issues: [#94](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemo
 
 We occasionaly have reports of users who updated their RPi afterwhich the RPI reporter Daemon script fails to start.  The issue is that one of the packages updated appears to have reset the `daemon` group perminsions.  For instructions on resetting the permissions to what is needed see: [Set up daemon account to allow access to temperature values](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon#set-up-daemon-account-to-allow-access-to-temperature-values)
 
-
 ### Issue: Some of my RPi's don't show up in HA
 
 Most often fix: _install the missing package._
@@ -561,7 +560,6 @@ Alternatively you can create a simple script which you can run any time you want
 
 **NOTE**: _the -b says 'since last boot' the --no-pager says just show it all without breaking it up into pages and requiring the enter key press for each page._
 
-
 ## Disclaimer and Legal
 
 > _Raspberry Pi_ is registered trademark of _Raspberry Pi (Trading) Ltd._
@@ -574,9 +572,3 @@ Alternatively you can create a simple script which you can run any time you want
 ---
 
 ### [Copyright](copyright) | [License](LICENSE)
-
-[commits-shield]: https://img.shields.io/github/commit-activity/y/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[commits]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/commits/master
-[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[releases]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/releases
