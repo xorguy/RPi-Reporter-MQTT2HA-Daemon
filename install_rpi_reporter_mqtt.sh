@@ -233,6 +233,95 @@ setup_systemd_service() {
     return 0
 }
 
+# Function to create config.ini file
+create_config_file() {
+    print_status "Creating config.ini file..."
+    
+    local config_file="$INSTALL_DIR/config.ini"
+    
+    # Check if config.ini already exists
+    if [ -f "$config_file" ]; then
+        print_warning "config.ini already exists"
+        read -p "Do you want to overwrite it? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_warning "Keeping existing config.ini"
+            return 0
+        fi
+        print_status "Backing up existing config.ini..."
+        mv "$config_file" "${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    # Get current hostname
+    local current_hostname
+    current_hostname=$(hostname)
+    if [ -z "$current_hostname" ]; then
+        print_error "Failed to get hostname"
+        return 1
+    fi
+    print_status "Current hostname: $current_hostname"
+    
+    # Prompt for MQTT credentials
+    echo ""
+    print_status "Please provide MQTT broker configuration:"
+    read -p "MQTT Hostname [mqtt.example.com]: " mqtt_hostname
+    mqtt_hostname=${mqtt_hostname:-mqtt.example.com}
+    
+    read -p "MQTT Port [1883]: " mqtt_port
+    mqtt_port=${mqtt_port:-1883}
+    
+    read -p "MQTT Username [mqttuser]: " mqtt_username
+    mqtt_username=${mqtt_username:-mqttuser}
+    
+    read -sp "MQTT Password: " mqtt_password
+    echo
+    
+    if [ -z "$mqtt_password" ]; then
+        print_error "MQTT password cannot be empty"
+        return 1
+    fi
+    
+    read -p "Discovery Prefix [homeassistant]: " discovery_prefix
+    discovery_prefix=${discovery_prefix:-homeassistant}
+    
+    read -p "Base Topic [home/nodes]: " base_topic
+    base_topic=${base_topic:-home/nodes}
+    
+    # Create config.ini with provided values
+    print_status "Writing configuration to $config_file..."
+    cat > "$config_file" << EOF
+[Daemon]
+interval_in_minutes = 2
+[Commands]
+#shutdown = /usr/bin/sudo /sbin/shutdown -h now 'shutdown rqst via MQTT'
+#reboot = /usr/bin/sudo /sbin/shutdown -r now 'reboot rqst via MQTT'
+#restart_service = /usr/bin/sudo systemctl restart isp-rpi-reporter.service
+
+[MQTT]
+hostname = ${mqtt_hostname}
+port = ${mqtt_port}
+discovery_prefix = ${discovery_prefix}
+base_topic = ${base_topic}
+sensor_name = rpi-${current_hostname}
+username = ${mqtt_username}
+password = ${mqtt_password}
+EOF
+    
+    if [ $? -eq 0 ]; then
+        print_success "config.ini created successfully"
+        print_status "Sensor name set to: rpi-${current_hostname}"
+        
+        # Set appropriate permissions
+        chmod 600 "$config_file"
+        print_success "Set secure permissions on config.ini (600)"
+        
+        return 0
+    else
+        print_error "Failed to create config.ini"
+        return 1
+    fi
+}
+
 # Function to enable service
 enable_service() {
     print_status "Enabling $SERVICE_NAME to start on boot..."
@@ -329,15 +418,19 @@ main() {
     setup_systemd_service || ((steps_failed++))
     echo ""
     
-    # Step 8: Enable service
+    # Step 8: Create config.ini file
+    create_config_file || ((steps_failed++))
+    echo ""
+    
+    # Step 9: Enable service
     enable_service || ((steps_failed++))
     echo ""
     
-    # Step 9: Start service
+    # Step 10: Start service
     start_service || ((steps_failed++))
     echo ""
     
-    # Step 10: Check service status
+    # Step 11: Check service status
     check_service_status || ((steps_failed++))
     echo ""
     
