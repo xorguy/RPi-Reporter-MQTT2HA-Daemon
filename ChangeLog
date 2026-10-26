@@ -1,5 +1,13 @@
 # ChangeLog
 
+Mon, 26 Oct 2026 13:00:00 +0100 v2.1.0 (fork: xorguy)
+
+- Docker image `xorguy/rpi-reporter-mqtt2ha` (linux/arm64): non-root, no capabilities, read-only, only /dev/vcio_gencmd (see DOCKER.md)
+- `RPI_HOST_ROOT`: read host OS release, apt/dpkg state and root filesystem from read-only mounts
+- Pi model falls back to /proc/cpuinfo when /proc/device-tree is masked
+- apt cache opened memory-only
+- systemd unit: allow /dev/vcio_gencmd (used by current vcgencmd) instead of /dev/vchiq and /dev/vcio
+
 Mon, 26 Oct 2026 12:00:00 +0100 v2.0.0 (fork: xorguy)
 
 - Security: remove all traces of the upstream release check (third-party `kz0q.com` call); fixes NameError crash ~2.8h after start left by the earlier removal

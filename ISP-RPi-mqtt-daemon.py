@@ -29,10 +29,11 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 apt_available = True
 try:
     import apt
+    import apt_pkg
 except ImportError:
     apt_available = False
 
-script_version = "2.0.0"
+script_version = "2.1.0"
 script_name = 'ISP-RPi-mqtt-daemon.py'
 script_info = '{} v{}'.format(script_name, script_version)
 project_name = 'RPi Reporter MQTT2HA Daemon'
@@ -293,6 +294,15 @@ print_line('Configuration accepted', console=False, sd_notify=True)
 # -----------------------------------------------------------------------------
 
 
+# Container support: host paths are mounted read-only below this directory
+# (e.g. RPI_HOST_ROOT=/host), see DOCKER.md
+host_root = os.environ.get('RPI_HOST_ROOT', '').rstrip('/')
+
+
+def host_path(fspec):
+    return host_root + fspec
+
+
 def read_text(fspec, default=''):
     try:
         with open(fspec, 'r', encoding='utf-8', errors='replace') as text_file:
@@ -420,7 +430,14 @@ def getDeviceModel():
     global rpi_model
     global rpi_model_raw
     global rpi_connections
-    rpi_model_raw = read_text('/proc/device-tree/model').replace('\x00', '').strip() or 'N/A'
+    rpi_model_raw = read_text('/proc/device-tree/model').replace('\x00', '').strip()
+    if not rpi_model_raw:
+        # /proc/device-tree is masked in containers, the RPi kernel also has it here
+        for currLine in read_text('/proc/cpuinfo').splitlines():
+            key, _, value = currLine.partition(':')
+            if key.strip() == 'Model':
+                rpi_model_raw = value.strip()
+    rpi_model_raw = rpi_model_raw or 'N/A'
     # now reduce string length (just more compact, same info)
     rpi_model = rpi_model_raw.replace('Raspberry ', 'R').replace(
         'i Model ', 'i 1 Model ').replace('Rev ', 'r').replace(' Plus ', '+')
@@ -447,7 +464,7 @@ def getDeviceModel():
 def getLinuxRelease():
     global rpi_linux_release
     rpi_linux_release = 'N/A'
-    for currLine in read_text('/etc/os-release').splitlines():
+    for currLine in read_text(host_path('/etc/os-release')).splitlines():
         key, _, value = currLine.partition('=')
         if key.strip() == 'VERSION_CODENAME' and value.strip():
             rpi_linux_release = value.strip().strip('"\'')
@@ -618,24 +635,38 @@ def getFileSystemDrives():
     global rpi_filesystem_space
     global rpi_filesystem_percent
     global rpi_filesystem
-    tmpDrives = []
-    seenDevices = set()
+    candidates = []  # (device, mount point as seen by the host, path to statvfs)
     for currLine in read_text('/proc/mounts').splitlines():
         lineParts = currLine.split()
         if len(lineParts) < 3:
             continue
         device, mount_point, fs_type = [decodeMountField(part) for part in lineParts[:3]]
+        stat_path = mount_point
+        if host_root:
+            # container: only report host filesystems mounted below host_root
+            if mount_point == host_path('/etc/os-release'):
+                mount_point = '/'  # bind mounted file living on the host root fs
+            elif mount_point.startswith(host_root + '/') and os.path.isdir(mount_point):
+                mount_point = mount_point[len(host_root):]
+            else:
+                continue
         if fs_type in K_FS_SKIP_TYPES or fs_type.startswith('fuse.') or 'boot' in mount_point:
             continue
         # real block devices and network shares only (//srv/share, srv:/path)
         if not (device.startswith('/') or ':' in device):
             continue
+        candidates.append((device, mount_point, stat_path))
+
+    tmpDrives = []
+    seenDevices = set()
+    # root first so it wins over other mounts of the same device
+    for device, mount_point, stat_path in sorted(candidates, key=lambda candidate: candidate[1] != '/'):
         if device in seenDevices:
             continue  # bind mount
         try:
-            stat = os.statvfs(mount_point)
+            stat = os.statvfs(stat_path)
         except OSError as exc:
-            print_line('statvfs({}) failed: {}'.format(mount_point, exc), debug=True)
+            print_line('statvfs({}) failed: {}'.format(stat_path, exc), debug=True)
             continue
         if stat.f_blocks == 0:
             continue
@@ -773,7 +804,7 @@ def getLastUpdateDate():
     modTimes = []
     for fspec in ['/var/lib/apt/lists/partial', '/var/lib/dpkg/lock']:
         try:
-            modTimes.append(os.path.getmtime(fspec))
+            modTimes.append(os.path.getmtime(host_path(fspec)))
         except OSError:
             pass
     rpi_last_update_date = datetime.fromtimestamp(max(modTimes)).astimezone() if modTimes else None
@@ -785,7 +816,7 @@ def getNumberOfAvailableUpdates():
     global rpi_update_count
     if apt_available:
         try:
-            cache = apt.Cache()
+            cache = apt.Cache(memonly=True)
             cache.open(None)
             cache.upgrade()
             changes = cache.get_changes()
@@ -796,6 +827,14 @@ def getNumberOfAvailableUpdates():
         print_line('APT Avail Updates: ({})'.format(len(changes)), info=True)
         rpi_update_count = len(changes)
 
+
+if apt_available and host_root:
+    # read the host package state (read-only mount); unlike apt.Cache(rootdir=)
+    # this never tries to create missing files below host_root
+    apt_pkg.config.set('Dir', host_root)
+    apt_pkg.config.set('Dir::State::status', host_path('/var/lib/dpkg/status'))
+    apt_pkg.config.set('Dir::Cache::srcpkgcache', '')
+    apt_pkg.init_system()
 
 # get our hostnames so we can setup MQTT
 getHostnames()
