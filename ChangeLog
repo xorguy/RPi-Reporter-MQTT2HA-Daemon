@@ -1,5 +1,11 @@
 # ChangeLog
 
+Mon, 26 Oct 2026 16:00:00 +0100 v2.2.0 (fork: xorguy)
+
+- Memory: apt update check runs in a short-lived child process, the daemon no longer keeps the apt cache heap (~40 MB -> ~20 MB resident)
+- Memory: apt maps the prebuilt (host) pkgcache.bin when valid instead of always building the cache in memory (peak ~200 MB -> ~30 MB on multiarch hosts)
+- Docker: optional read-only mount `/var/cache/apt:/host/var/cache/apt:ro`
+
 Mon, 26 Oct 2026 13:00:00 +0100 v2.1.0 (fork: xorguy)
 
 - Docker image `xorguy/rpi-reporter-mqtt2ha` (linux/arm64): non-root, no capabilities, read-only, only /dev/vcio_gencmd (see DOCKER.md)

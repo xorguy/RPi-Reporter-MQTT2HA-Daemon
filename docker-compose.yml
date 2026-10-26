@@ -31,5 +31,8 @@ services:
       - /etc/apt:/host/etc/apt:ro
       - /var/lib/apt:/host/var/lib/apt:ro
       - /var/lib/dpkg:/host/var/lib/dpkg:ro
+      # optional: host's prebuilt apt cache, the update check maps it instead of
+      # building its own (~30 MB instead of up to ~200 MB peak)
+      - /var/cache/apt:/host/var/cache/apt:ro
       # optional: extra drives to report, mounted below /host
       # - /media/usb:/host/media/usb:ro
