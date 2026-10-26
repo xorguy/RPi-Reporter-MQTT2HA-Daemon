@@ -44,6 +44,7 @@ docker run -d --name rpi-reporter --restart unless-stopped \
   -v /etc/apt:/host/etc/apt:ro \
   -v /var/lib/apt:/host/var/lib/apt:ro \
   -v /var/lib/dpkg:/host/var/lib/dpkg:ro \
+  -v /var/cache/apt:/host/var/cache/apt:ro \
   xorguy/rpi-reporter-mqtt2ha:latest
 ```
 
@@ -58,10 +59,11 @@ Add `-v` or `-d` after the image name for verbose / debug output.
 | `--read-only` + small `noexec` `/tmp` tmpfs | immutable container filesystem; apt needs `/tmp` to verify the host package lists |
 | `--device /dev/vcio_gencmd` + `--group-add 44` | the only device used: VideoCore gencmd mailbox for `vcgencmd` (GPU temperature, throttling / under-voltage). Use your host `video` gid |
 | `--network host` | **required** for correct data: the Home Assistant device id is derived from the host MAC address (a container network gives a new random MAC on every re-create = duplicate devices), plus real IP addresses, traffic and host name |
-| `--pids-limit`, `--memory` | resource limits (the apt update check needs ~100 MB) |
+| `--pids-limit`, `--memory` | resource limits: the daemon needs ~20 MB; the apt update check runs in a short-lived child process that needs ~30 MB more with the host apt cache mounted, up to ~200 MB without it (multiarch hosts) |
 | `config.ini` `:ro` | configuration and credentials, read-only |
 | `/etc/os-release` → `/host/etc/os-release` | host OS release, and root filesystem usage (statistics of the filesystem holding that file) |
 | `/etc/apt`, `/var/lib/apt`, `/var/lib/dpkg` → `/host/...` | pending updates count and last update date (read from the host package state, never modified) |
+| `/var/cache/apt` → `/host/var/cache/apt` (optional) | the update check maps the host's prebuilt `pkgcache.bin` instead of building the package cache in memory; if missing or stale it falls back to the in-memory build |
 | `/etc/localtime` | timestamps in the host time zone (or set `TZ=`) |
 
 Docker's default seccomp and AppArmor profiles stay active; the container is **not** privileged and does **not** need `systempaths=unconfined` (the Pi model is read from `/proc/cpuinfo` when `/proc/device-tree` is masked).

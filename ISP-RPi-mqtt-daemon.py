@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import fcntl
+import importlib.util
 import json
 import math
 import os
@@ -26,14 +27,11 @@ import sdnotify
 
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-apt_available = True
-try:
-    import apt
-    import apt_pkg
-except ImportError:
-    apt_available = False
+# python3-apt is only used by the short-lived update check child process, see
+# getNumberOfAvailableUpdates(): the daemon itself never loads the package cache
+apt_available = importlib.util.find_spec('apt') is not None
 
-script_version = "2.1.0"
+script_version = "2.2.0"
 script_name = 'ISP-RPi-mqtt-daemon.py'
 script_info = '{} v{}'.format(script_name, script_version)
 project_name = 'RPi Reporter MQTT2HA Daemon'
@@ -812,29 +810,46 @@ def getLastUpdateDate():
         rpi_last_update_date), debug=True)
 
 
+# Runs in a child process (python3 -I -c ...): the apt package cache needs tens of
+# MB (hundreds when it has to be built from the package lists) and glibc does not
+# give that heap back, so it is released by exiting. argv[1]: host_root ('' = /).
+# apt mmaps the prebuilt (host) pkgcache.bin when it is valid, otherwise it builds
+# the cache in memory: the cache directory is never written (read-only / not ours)
+APT_CHECK_CODE = '''
+import json, sys
+import apt, apt_pkg
+host_root = sys.argv[1]
+if host_root:
+    # read the host package state (read-only mounts); unlike apt.Cache(rootdir=)
+    # this never tries to create missing files below host_root
+    apt_pkg.config.set('Dir', host_root)
+    apt_pkg.config.set('Dir::State::status', host_root + '/var/lib/dpkg/status')
+    apt_pkg.init_system()
+cache = apt.Cache()
+cache.upgrade()
+print(json.dumps([package.name for package in cache.get_changes()]))
+'''
+
+
 def getNumberOfAvailableUpdates():
     global rpi_update_count
     if apt_available:
         try:
-            cache = apt.Cache(memonly=True)
-            cache.open(None)
-            cache.upgrade()
-            changes = cache.get_changes()
-        except Exception as exc:
+            result = subprocess.run([sys.executable, '-I', '-c', APT_CHECK_CODE, host_root],
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, timeout=300, check=False)
+            if result.returncode:
+                # last stderr line holds the exception
+                stderr_lines = result.stderr.decode('utf-8', errors='replace').strip().splitlines() or ['']
+                raise RuntimeError('exit({}) {}'.format(result.returncode, stderr_lines[-1]))
+            changes = json.loads(result.stdout)
+        except (OSError, subprocess.TimeoutExpired, RuntimeError, ValueError) as exc:
             print_line('APT update check failed: {}'.format(exc), error=True)
             return
         print_line('APT changes=[{}]'.format(changes), debug=True)
         print_line('APT Avail Updates: ({})'.format(len(changes)), info=True)
         rpi_update_count = len(changes)
 
-
-if apt_available and host_root:
-    # read the host package state (read-only mount); unlike apt.Cache(rootdir=)
-    # this never tries to create missing files below host_root
-    apt_pkg.config.set('Dir', host_root)
-    apt_pkg.config.set('Dir::State::status', host_path('/var/lib/dpkg/status'))
-    apt_pkg.config.set('Dir::Cache::srcpkgcache', '')
-    apt_pkg.init_system()
 
 # get our hostnames so we can setup MQTT
 getHostnames()
