@@ -1,6 +1,6 @@
 # RPi Reporter MQTT2HA Daemon
 
-This is a modified version of the original script, but it removes the constant pinging to kz0q.com, which causes a huge amount of ping requests. This has no reason to happen, as the project has been untouched for years.
+This is a modified version of the original script. It removes the original's periodic release check against a third-party server (`http://kz0q.com/daemon-releases`, contacted at start-up and every 12 hours) and is hardened for current Raspberry Pi OS (see [Security notes](#security-notes)).
 
 This is forked from here <https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon>
 
@@ -8,7 +8,7 @@ A simple Linux python script to query the Raspberry Pi on which it is running fo
 
 ![Discovery image](./Docs/images/DiscoveryV4.png)
 
-This script should be configured to be run in **daemon mode** continuously in the background as a systemd service (or optionally as a SysV init script). Instructions are provided below.
+This script should be run continuously in the background as a systemd service. Instructions are provided below.
 
 ## Table of Contents
 
@@ -20,6 +20,7 @@ On this Page:
 - [Configuration](#configuration) - configuring the script to talk with your MQTT broker
 - [Execution](#execution) - initial run by hand, then setup to run from boot
 - [Integration](#integration) - a quick look at what's reported to MQTT about this RPi
+- [Security notes](#security-notes) - what is published and how to protect it
 - [Troubleshooting](#troubleshooting) - having start up issues? Check here for common problems
 
 Additional pages:
@@ -31,13 +32,13 @@ Additional pages:
 
 ## Features
 
-- Tested on Raspberry Pi's zero, 2, 3, and 4 with Jessie, Stretch, Buster, and Bullseye
-- Tested with Home Assistant v0.111.0 -> 2023.4.6
+- Targets Raspberry Pi OS / Debian Trixie (Python 3.13, paho-mqtt 2.x) on all Raspberry Pi models
+- Talks only to your MQTT broker: no telemetry, no third-party connections
 - Tested with Mosquitto broker
 - Data is published via MQTT
 - MQTT discovery messages are sent so RPi's are automatically registered with Home Assistant (if MQTT discovery is enabled in your HA installation)
-- MQTT authentication support
-- No special/root privileges are required by this mechanism (unless you activate remote commanding from HA)
+- MQTT authentication and TLS support
+- Runs as the unprivileged `daemon` user inside a hardened systemd sandbox
 - Linux daemon / systemd service, sd_notify messages generated
 
 ### RPi Device
@@ -102,7 +103,7 @@ The monitored topic reports the following information:
 |                     | `free_swap`        | - available swap size in MBytes                                                                                         |
 | `mem_used_prcnt`    |                    | shows the amount of RAM currently in use (used by HA sensor)                                                            |
 | `reporter`          |                    | name and version of the script reporting these values                                                                   |
-| `reporter_releases` |                    | list of latest reporter formal versions                                                                                 |
+| `reporter_releases` |                    | always empty (kept for compatibility, no remote lookup)                                                                       |
 | `report_interval`   |                    | interval in minutes between reports from this script                                                                    |
 | `throttle`          |                    | reports the throttle status value plus interpretation thereof                                                           |
 | `timestamp`         |                    | date, time when this report was generated                                                                               |
@@ -117,102 +118,29 @@ MQTT is huge help in connecting different parts of your smart home and setting u
 
 ## Installation
 
-On a modern Linux system just a few steps are needed to get the daemon working.
-The following example shows the installation under Debian/Raspbian below the `/opt` directory:
+This version targets **Raspberry Pi OS / Debian Trixie** (Python 3.13, paho-mqtt 2.x). All dependencies come from apt; no `pip` is needed.
 
-First install extra packages the script needs (select one of the two following commands)
-
-### Packages for Ubuntu, Raspberry pi OS, and the like
+### Automated install
 
 ```shell
-sudo apt-get install git python3 python3-pip python3-tzlocal python3-sdnotify python3-colorama python3-unidecode python3-apt python3-paho-mqtt python3-requests
+curl -fsSLO https://raw.githubusercontent.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/master/install_rpi_reporter_mqtt.sh
+less install_rpi_reporter_mqtt.sh   # review before running as root
+sudo bash install_rpi_reporter_mqtt.sh
 ```
 
-### Additional Packages for pure Ubuntu
+The installer installs the apt packages, clones the repo to `/opt/RPi-Reporter-MQTT2HA-Daemon`, adds the `daemon` user to the `video` group, writes `config.ini` (owner `root:daemon`, mode `0640`), installs the hardened systemd unit and starts it.
 
-**NOTE** if you are running a **pure Ubuntu** not Raspberry pi OS then you may need to install additional packages to get the binary we use to get the core temperatures and tools to inspec the network interfaces. (_If you are NOT seeing temperatures in your Lovelace RPI Monitor Card this is likely the cause. Or if some of your RPis don't show up in Home Assistant_) Do the following in this case:
-
-```shell
-sudo apt-get install libraspberrypi-bin net-tools
-```
-
-### Packages for Arch Linux
+### Manual install
 
 ```shell
-sudo pacman -S python python-pip python-tzlocal python-notify2 python-colorama python-unidecode python-paho-mqtt python-requests inetutils
-```
+sudo apt-get install git python3 python3-sdnotify python3-colorama python3-unidecode python3-apt python3-paho-mqtt
 
-**NOTE**: _for users of Arch Linux the number of updates available will NOT be reported (will always show as '-1'.) This is due to Arch Linux not using the apt package manager._
-
-### With these extra packages installed, verify access to network information
-
-The Daemon script needs access to information about how your RPi connects to the network. It uses `ifconfig(8)` to look up connection names and get the RPi IP address, etc.
-
-Let's run `ifconfig` to insure you have it installed.
-
-```shell
-# run ifconfig(8) to see your RPi networking info
-ifconfig
-eth0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
-        ether xx:xx:xx:xx:xx:xx  txqueuelen 1000  (Ethernet)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
-        inet 127.0.0.1  netmask 255.0.0.0
-        inet6 ::1  prefixlen 128  scopeid 0x10<host>
-        loop  txqueuelen 1000  (Local Loopback)
-        RX packets 41342  bytes 2175319 (2.0 MiB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 41342  bytes 2175319 (2.0 MiB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet xxx.xxx.xxx.xxx  netmask 255.255.255.0  broadcast xxx.xxx.xxx.xxx
-        inet6 ... {omitted} ...
-        inet6 ... {omitted} ...
-        ether xx:xx:xx:xx:xx:xx  txqueuelen 1000  (Ethernet)
-        RX packets 1458134  bytes 344599963 (328.6 MiB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 299694  bytes 51281531 (48.9 MiB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-```
-
-If you are seeing output from the `ifconfig` tool then continue on with the following steps. If you don't you may have missed installing `net-utils` in an earlier step.
-
-### Now finish with the script install
-
-Now that the extra packages are installed let's install our script and any remaining supporting python modules.
-
-**--> NEW!! These instructions adjusted to use the latest released version! See ["Why"](#why-are-we-checking-out-the-latest-release) below.**
-
-```shell
-# Get a copy of the repository
 sudo git clone https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon.git /opt/RPi-Reporter-MQTT2HA-Daemon
-
-# move into your new local repository
-cd /opt/RPi-Reporter-MQTT2HA-Daemon
-
-# (NEW) Move to the latest official release:
-sudo git checkout v1.8.5 # (you want to replace v1.8.5 with the latest if this isn't)
-
-# Make sure any script requirement are installed (if they aren't aready)
-sudo pip3 install -r requirements.txt
 ```
 
-**WARNING:** If you choose to install these files in a location other than `/opt/RPi-Reporter-MQTT2HA-Daemon`, you will need to modify some of the control files which are used when setting up to run this script automatically. The following files:
+**WARNING:** If you choose to install these files in a location other than `/opt/RPi-Reporter-MQTT2HA-Daemon`, you will need to change the paths in **isp-rpi-reporter.service** before you can run this script as a service.
 
-- **rpi-reporter** - Sys V init script
-- **isp-rpi-reporter.service** - Systemd Daemon / Service description file
-
-... need to have any mention of `/opt/RPi-Reporter-MQTT2HA-Daemon` changed to your install location **before you can run this script as a service.**
-
-#### Why are we checking-out the latest release?
-
-When I'm developing new features I'll work on a different branch thereby not affecting master. When they are tested I'll merge the development brach into master. However it is much easier to merge pull requests directly into master. This action will, for a short period of time, make the **master branch have possibly non-working code**!  You don't want this version until I've completed my testing of the new version and marked it as a new release. The clone gets you all versions while the checkout command moves your installation to the released version so you are running the latest fully tested code.  You can always check the [releases page](https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/releases) to find out which is the latest. This also tells you what changes appeared in each release.
+**NOTE**: _on systems without apt (e.g. Arch Linux) the number of updates available will NOT be reported (will always show as '-1')._
 
 ## Configuration
 
@@ -221,6 +149,9 @@ The file needs to be created first: (_in the following: if you don't have vim in
 
 ```shell
 sudo cp /opt/RPi-Reporter-MQTT2HA-Daemon/config.{ini.dist,ini}
+# config.ini holds your MQTT credentials: readable by root and the daemon group only
+sudo chown root:daemon /opt/RPi-Reporter-MQTT2HA-Daemon/config.ini
+sudo chmod 640 /opt/RPi-Reporter-MQTT2HA-Daemon/config.ini
 sudo vim /opt/RPi-Reporter-MQTT2HA-Daemon/config.ini
 ```
 
@@ -267,8 +198,6 @@ python3 /opt/RPi-Reporter-MQTT2HA-Daemon/ISP-RPi-mqtt-daemon.py --config /opt/RP
 
 In order to have your HA system know if your RPi is online/offline and when it last reported-in then you must set up this script to run as a system service.
 
-**NOTE:** Daemon mode must be enabled in the configuration file (default).
-
 But first, we need to grant access to some hardware for the user account under which the sevice will run.
 
 ### Set up daemon account to allow access to temperature values
@@ -291,114 +220,43 @@ $ daemon : daemon video
 
 _NOTE: Yes, `video` is correct. This appears to be due to our accessing the GPU temperatures._
 
-### Choose Run Style
-
-You can choose to run this script as a `systemd service` or as a `Sys V init script`. If you are on a newer OS than `Jessie` or if as a system admin you are just more comfortable with Sys V init scripts then you can use the latter style.
-
-Let's look at how to set up each of these forms:
-
-#### Run as Systemd Daemon / Service (_for Raspian/Raspberry pi OS newer than 'jessie'_)
-
-(**Heads Up** _We've learned the hard way that RPi's running `jessie` won't restart the script on reboot if setup this way, Please set up these RPi's using the init script form shown in the next section._)
+### Run as Systemd Daemon / Service
 
 Set up the script to be run as a system service as follows:
 
 ```shell
-sudo ln -s /opt/RPi-Reporter-MQTT2HA-Daemon/isp-rpi-reporter.service /etc/systemd/system/isp-rpi-reporter.service
+sudo install -m 0644 /opt/RPi-Reporter-MQTT2HA-Daemon/isp-rpi-reporter.service /etc/systemd/system/isp-rpi-reporter.service
 
 sudo systemctl daemon-reload
 
-# tell system that it can start our script at system startup during boot
-sudo systemctl enable isp-rpi-reporter.service
-
-# start the script running
-sudo systemctl start isp-rpi-reporter.service
+# start now and at every boot
+sudo systemctl enable --now isp-rpi-reporter.service
 
 # check to make sure all is ok with the start up
 sudo systemctl status isp-rpi-reporter.service
 ```
 
-**NOTE:** _Please remember to run the 'systemctl enable ...' once at first install, if you want your script to start up every time your RPi reboots!_
-
-#### Run as Sys V init script (_your RPi is running 'jessie' or you just like this form_)
-
-In this form our wrapper script located in the /etc/init.d directory and is run according to symbolic links in the `/etc/rc.x` directories.
-
-Set up the script to be run as a Sys V init script as follows:
-
-```shell
-sudo ln -s /opt/RPi-Reporter-MQTT2HA-Daemon/rpi-reporter /etc/init.d/rpi-reporter
-
-# configure system to start this script at boot time
-sudo update-rc.d rpi-reporter defaults
-
-# let's start the script now, too so we don't have to reboot
-sudo /etc/init.d/rpi-reporter start
-
-# check to make sure all is ok with the start up
-sudo /etc/init.d/rpi-reporter status
-```
+The unit is sandboxed (read-only filesystem, no capabilities, no privilege escalation, only IP/unix sockets, only the VideoCore devices). Check it with `systemd-analyze security isp-rpi-reporter.service`.
 
 ### Update to latest
 
-Like most active developers, we periodically upgrade our script. Use one of the following list of update steps based upon how you are set up.
-
-#### Systemd commands to perform update
-
-If you are setup in the systemd form, you can update to the latest we've published by following these steps:
-
 ```shell
-# go to local repo
 cd /opt/RPi-Reporter-MQTT2HA-Daemon
+sudo git pull --ff-only
 
-# stop the service
-sudo systemctl stop isp-rpi-reporter.service
-
-# get the latest version
-sudo git pull
-
-# (NEW) Move to the latest official release:
-sudo git checkout v1.8.5 # (you want to replace v1.8.5 with the latest if this isn't)
-
-# reload the systemd configuration (in case it changed)
+# the unit is copied (not linked): re-install it in case it changed
+sudo install -m 0644 isp-rpi-reporter.service /etc/systemd/system/isp-rpi-reporter.service
 sudo systemctl daemon-reload
-
-# restart the service with your new version
-sudo systemctl start isp-rpi-reporter.service
-
-# if you want, check status of the running script
+sudo systemctl restart isp-rpi-reporter.service
 systemctl status isp-rpi-reporter.service
-
 ```
 
-**NOTE**: _Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above._
+## Security notes
 
-#### SysV init script commands to perform update
-
-If you are setup in the Sys V init script form, you can update to the latest we've published by following these steps:
-
-```shell
-# go to local repo
-cd /opt/RPi-Reporter-MQTT2HA-Daemon
-
-# stop the service
-sudo /etc/init.d/rpi-reporter stop
-
-# get the latest version
-sudo git pull
-
-# (NEW) Move to the latest official release:
-sudo git checkout v1.8.5 # (you want to replace v1.8.5 with the latest if this isn't)
-
-# restart the service with your new version
-sudo /etc/init.d/rpi-reporter start
-
-# if you want, check status of the running script
-sudo /etc/init.d/rpi-reporter status
-
-```
-
-**NOTE**: _Wondering about the "checkout" command? See [Why are we checking-out the latest release?](#why-are-we-checking-out-the-latest-release) above._
+- The daemon only connects to your MQTT broker. The original upstream project fetched a release list from a third-party server (`raw.githubusercontent.com`, later `http://kz0q.com/daemon-releases` over plain HTTP) at start-up and every 12 hours; this fork has removed it completely.
+- Enable `tls = true` when your broker supports it, otherwise credentials and data travel in clear text.
+- The published data includes hostname, FQDN, IP and MAC addresses and the CPU serial; restrict who can read `{base_topic}/#` with broker ACLs.
+- Optional `[Commands]` are executed without a shell and the MQTT payload is ignored, but anyone who can publish to `{base_topic}/command/{sensor_name}/+` can trigger them: protect that topic with ACLs.
 
 ## Integration
 
@@ -475,7 +333,7 @@ An example:
 }
 ```
 
-**NOTE:** Where there's an IP address that interface is connected. Also, there are new `tx_data` and `rx_data` values which show traffic in bytes for this reporting interval for each network interface.
+**NOTE:** Where there's an IP address that interface is connected. The `tx_data` and `rx_data` values show the average traffic in Kbit/s since the previous report for each network interface (0 on the first report).
 
 This data can be subscribed to and processed by your home assistant installation. How you build your RPi dashboard from here is up to you!
 
@@ -487,13 +345,13 @@ Most often fix: _Re-add the video perms to the daemon group_
 
 See Closed Issues: [#94](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/issues/94), [#98](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/issues/98)
 
-We occasionaly have reports of users who updated their RPi afterwhich the RPI reporter Daemon script fails to start.  The issue is that one of the packages updated appears to have reset the `daemon` group perminsions.  For instructions on resetting the permissions to what is needed see: [Set up daemon account to allow access to temperature values](https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon#set-up-daemon-account-to-allow-access-to-temperature-values)
+We occasionaly have reports of users who updated their RPi afterwhich the RPI reporter Daemon script fails to start.  The issue is that one of the packages updated appears to have reset the `daemon` group perminsions.  For instructions on resetting the permissions to what is needed see: [Set up daemon account to allow access to temperature values](#set-up-daemon-account-to-allow-access-to-temperature-values)
 
 ### Issue: Some of my RPi's don't show up in HA
 
-Most often fix: _install the missing package._
+Most often fix: _check the network interface detection._
 
-We occasionaly have reports of users with more than one RPi on their network but only one shows up in Home Assistant. This is most often caused when this script generats a non-unique id for the RPi's. This in turn is most often caused by an inability to get network interface details. I've just updated the install to ensure that we have net-tools package installed. On Raspberry Pi OS this package is already present while on Ubuntu this is not installed by default. If you can successfully run ifconfig(8) then you have what's needed. If not then simply run `sudo apt-get install net-tools`.
+We occasionaly have reports of users with more than one RPi on their network but only one shows up in Home Assistant. This is most often caused when this script generates a non-unique id for the RPi's, which is derived from the MAC address of the first `eth*`/`wlan*` interface found in `/sys/class/net`. Run the daemon by hand with `-d` and check the `rpi_mac=` line.
 
 ### Issue: I removed the RPi sensor from HA now the RPi won't come back
 

@@ -1,5 +1,18 @@
 # ChangeLog
 
+Mon, 26 Oct 2026 12:00:00 +0100 v2.0.0 (fork: xorguy)
+
+- Security: remove all traces of the upstream release check (third-party `kz0q.com` call); fixes NameError crash ~2.8h after start left by the earlier removal
+- Security: MQTT commands run without a shell, payload ignored, retained commands ignored (command injection fix)
+- Security: `tls_insecure` parsed as boolean (any value used to disable hostname verification); TLS >= 1.2 via SSLContext
+- Security: hardened systemd unit (NoNewPrivileges, ProtectSystem=strict, no capabilities, device allow-list, syscall filter...)
+- Security: installer uses apt only (no root pip), aborts on errors, config.ini root:daemon 0640, optional TLS prompt
+- Fix: single availability topic with retained LWT; offline published on SIGTERM; sensors now go unavailable in HA
+- Fix: honor `sensor_name` / `MQTT_SENSOR_NAME`; reporting survives a failed sample; correct network rates (Kbit/s)
+- Read metrics natively from /proc, /sys, /etc/os-release, statvfs (no egrep/ifconfig/uptime parsing; works on Trixie)
+- Move to paho-mqtt 2.x callback API; drop requests, tzlocal, wheel; target Raspberry Pi OS / Debian Trixie
+- Remove SysV init script and locale_test.py
+
 Mon, 01 May 2023 16:51:08 -0600 v1.8.5
 
 - Handle resubscription if MQTT broker restarts (#99)

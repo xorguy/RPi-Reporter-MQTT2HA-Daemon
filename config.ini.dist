@@ -1,16 +1,18 @@
 # Configuration file for RPi-Reporter-MQTT2HA-Daemon
-# Source: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon
+# Source: https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon
 #
 # Uncomment and adapt all settings as needed.
 # Some settings can be configured by environment variables.
 # If an env variable is set, it takes precedence over settings in this file
+#
+# NOTE: only full-line comments are supported. Anything after '=' is the value,
+#  so values (e.g. passwords) may contain '#' - do NOT append comments to a value line.
+#
+# This file holds credentials: keep it owned by root:daemon with mode 0640.
 
 [Daemon]
 
-# Enable or Disable an endless execution loop (Default: true)
-#enabled = true
-
-# This script reports RPi values at a fixed interval in minutes [2-30], [Default: 5]
+# This script reports RPi values at a fixed interval in minutes [1-30], [Default: 5]
 #interval_in_minutes = 5
 
 # This script checks for pending os updates at a fixed internal in hours [2-24], [Default: 4]
@@ -20,6 +22,11 @@
 #fallback_domain = home
 
 [Commands]
+# Each entry becomes a button in Home Assistant. The command is run WITHOUT a shell and
+# the MQTT payload is ignored. Anyone who can publish to {base_topic}/command/{sensor_name}/+
+# can trigger these, so protect that topic with broker ACLs.
+# NOTE: the provided systemd unit sets NoNewPrivileges=yes, which blocks sudo, so the
+#  sudo examples below only work if you relax the unit hardening (see RMTECTRL.md).
 #shutdown = /usr/bin/sudo /sbin/shutdown -h now 'shutdown rqst via MQTT'
 #reboot = /usr/bin/sudo /sbin/shutdown -r now 'reboot rqst via MQTT'
 #restart_service = /usr/bin/sudo systemctl restart isp-rpi-reporter.service
@@ -30,7 +37,7 @@
 # Also read from the MQTT_HOSTNAME environment variable
 #hostname = localhost
 
-# The TCP port the MQTT broker is listening on (Default: 1883)
+# The TCP port the MQTT broker is listening on (Default: 1883, usually 8883 with TLS)
 # Also read from the MQTT_PORT environment variable
 #port = 1883
 
@@ -43,12 +50,13 @@
 #discovery_prefix = homeassistant
 
 # NOTE: The MQTT topic used for this device is constructed as:
-#  {base_topic}/{sensor_name}
+#  {base_topic}/sensor/{sensor_name}
 #
 # The MQTT base topic under which to publish the Raspberry Pi sensor data topics.
 #base_topic = home/nodes
 
-# The MQTT name for this Raspberry Pi as a sensor
+# The MQTT name for this Raspberry Pi as a sensor [Default: rpi-{hostname}]
+# Also read from the MQTT_SENSOR_NAME environment variable
 #sensor_name = rpi-{hostname}
 
 
@@ -57,10 +65,10 @@
 #username = user
 #password = pwd123
 
-# Enable TLS/SSL on the connection
+# Enable TLS on the connection (strongly recommended when using credentials)
 #tls = false
 
-# Path to CA Certificate file to verify host
+# Path to CA Certificate file to verify the broker (Default: system CA store)
 #tls_ca_cert =
 
 # Path to TLS client auth key file
@@ -68,3 +76,7 @@
 
 # Path to TLS client auth certificate file
 #tls_certfile =
+
+# Skip verification of the broker hostname in its certificate (the certificate chain
+# is still verified). Only for testing! [Default: false]
+#tls_insecure = false

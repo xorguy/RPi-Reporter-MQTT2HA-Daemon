@@ -3,9 +3,10 @@
 ################################################################################
 # Script: install_rpi_reporter_mqtt.sh
 # Description: Install and configure RPi-Reporter-MQTT2HA-Daemon
-# Author: Auto-generated
-# Date: 2025-10-31
+#              (Raspberry Pi OS / Debian Trixie)
 ################################################################################
+
+set -Eeuo pipefail
 
 # Color codes for output
 RED='\033[0;31m'
@@ -18,6 +19,8 @@ NC='\033[0m' # No Color
 REPO_URL="https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon.git"
 INSTALL_DIR="/opt/RPi-Reporter-MQTT2HA-Daemon"
 SERVICE_NAME="isp-rpi-reporter.service"
+SERVICE_USER="daemon"
+SERVICE_GROUP="daemon"
 
 # Function to print status messages
 print_status() {
@@ -29,270 +32,185 @@ print_success() {
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
+# Abort the installation
+die() {
+    print_error "$1"
+    print_error "Installation aborted"
+    exit 1
+}
+
+trap 'print_error "Unexpected failure at line $LINENO: $BASH_COMMAND"' ERR
+
+# Ask a yes/no question, default No
+confirm() {
+    local reply
+    read -r -p "$1 (y/N): " reply
+    [[ $reply =~ ^[Yy]$ ]]
+}
+
 # Function to check if running as root
 check_root() {
     print_status "Checking if script is running with sudo privileges..."
     if [ "$EUID" -ne 0 ]; then
-        print_error "This script must be run with sudo privileges"
-        exit 1
+        die "This script must be run with sudo privileges"
     fi
     print_success "Running with sudo privileges"
 }
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Function to check internet connectivity
-check_internet() {
-    print_status "Checking internet connectivity..."
-    if ping -c 1 google.com >/dev/null 2>&1; then
-        print_success "Internet connection is available"
-        return 0
+# Function to check the OS release
+check_os() {
+    local codename=""
+    if [ -r /etc/os-release ]; then
+        # shellcheck source=/dev/null
+        codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
+    fi
+    if [ "$codename" != "trixie" ]; then
+        print_warning "This version targets Debian/Raspberry Pi OS 'trixie', found '${codename:-unknown}'"
+        confirm "Continue anyway?" || die "Unsupported OS release"
     else
-        print_error "No internet connection detected"
-        return 1
+        print_success "OS release: $codename"
     fi
 }
 
-# Function to install system packages
+# Function to install system packages (all dependencies come from apt)
 install_system_packages() {
     print_status "Installing required system packages..."
-    
+
     local packages=(
         "git"
         "python3"
-        "python3-pip"
-        "python3-tzlocal"
         "python3-sdnotify"
         "python3-colorama"
         "python3-unidecode"
         "python3-apt"
         "python3-paho-mqtt"
-        "python3-requests"
     )
-    
-    # Update package list
+
     print_status "Updating package list..."
-    if apt-get update; then
-        print_success "Package list updated"
-    else
-        print_error "Failed to update package list"
-        return 1
-    fi
-    
-    # Install packages
-    local failed_packages=()
-    for package in "${packages[@]}"; do
-        print_status "Installing $package..."
-        if apt-get install -y "$package" 2>&1 | tee /tmp/apt_install.log | grep -q "E:"; then
-            print_error "Failed to install $package"
-            failed_packages+=("$package")
-        else
-            print_success "Installed $package"
-        fi
-    done
-    
-    if [ ${#failed_packages[@]} -eq 0 ]; then
-        print_success "All system packages installed successfully"
-        return 0
-    else
-        print_error "Failed to install packages: ${failed_packages[*]}"
-        return 1
-    fi
+    apt-get update || die "Failed to update package list"
+
+    print_status "Installing: ${packages[*]}"
+    apt-get install -y "${packages[@]}" || die "Failed to install system packages"
+    print_success "All system packages installed successfully"
 }
 
 # Function to clone repository
 clone_repository() {
-    print_status "Checking if repository already exists..."
-    
+    local config_backup=""
+
     if [ -d "$INSTALL_DIR" ]; then
         print_warning "Directory $INSTALL_DIR already exists"
-        read -p "Do you want to remove it and clone fresh? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            print_status "Removing existing directory..."
-            if rm -rf "$INSTALL_DIR"; then
-                print_success "Removed existing directory"
-            else
-                print_error "Failed to remove existing directory"
-                return 1
-            fi
-        else
+        if ! confirm "Do you want to remove it and clone fresh? (config.ini is kept)"; then
             print_warning "Skipping repository clone"
             return 0
         fi
+        if [ -f "$INSTALL_DIR/config.ini" ]; then
+            config_backup=$(mktemp)
+            cp -p "$INSTALL_DIR/config.ini" "$config_backup"
+        fi
+        rm -rf "$INSTALL_DIR"
+        print_success "Removed existing directory"
     fi
-    
+
     print_status "Cloning repository from $REPO_URL..."
-    if git clone "$REPO_URL" "$INSTALL_DIR"; then
-        print_success "Repository cloned successfully to $INSTALL_DIR"
-        return 0
-    else
-        print_error "Failed to clone repository"
-        return 1
+    if ! git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"; then
+        [ -n "$config_backup" ] && print_warning "Previous config.ini saved at $config_backup"
+        die "Failed to clone repository"
+    fi
+    print_success "Repository cloned successfully to $INSTALL_DIR"
+
+    if [ -n "$config_backup" ]; then
+        mv "$config_backup" "$INSTALL_DIR/config.ini"
+        print_success "Restored previous config.ini"
     fi
 }
 
-# Function to install Python requirements
-install_python_requirements() {
-    print_status "Installing Python requirements..."
-    
-    if [ ! -f "$INSTALL_DIR/requirements.txt" ]; then
-        print_warning "requirements.txt not found, skipping pip install"
-        return 0
-    fi
-    
-    print_status "Installing pip requirements from requirements.txt..."
-    cd "$INSTALL_DIR" || return 1
-    
-    if pip3 install -r requirements.txt --break-system-packages 2>&1 | tee /tmp/pip_install.log; then
-        print_success "Python requirements installed successfully"
-        return 0
-    else
-        print_error "Failed to install Python requirements"
-        return 1
-    fi
-}
-
-# Function to add daemon user to video group
+# Function to add daemon user to video group (needed by vcgencmd)
 add_user_to_video_group() {
-    print_status "Checking if daemon user exists..."
-    
-    if ! id -u daemon >/dev/null 2>&1; then
-        print_error "User 'daemon' does not exist"
-        return 1
-    fi
-    
-    print_status "Checking if daemon user is in video group..."
-    if groups daemon | grep -q "\bvideo\b"; then
-        print_warning "User 'daemon' is already in video group"
-        return 0
-    fi
-    
-    print_status "Adding daemon user to video group..."
-    if usermod daemon -a -G video; then
-        print_success "User 'daemon' added to video group"
-        return 0
-    else
-        print_error "Failed to add daemon user to video group"
-        return 1
-    fi
-}
+    id -u "$SERVICE_USER" >/dev/null 2>&1 || die "User '$SERVICE_USER' does not exist"
 
-# Function to setup systemd service
-setup_systemd_service() {
-    print_status "Setting up systemd service..."
-    
-    local service_file="$INSTALL_DIR/$SERVICE_NAME"
-    local systemd_service="/etc/systemd/system/$SERVICE_NAME"
-    
-    # Check if service file exists in repository
-    if [ ! -f "$service_file" ]; then
-        print_error "Service file not found: $service_file"
-        return 1
+    if id -nG "$SERVICE_USER" | tr ' ' '\n' | grep -qx video; then
+        print_success "User '$SERVICE_USER' is already in video group"
+        return 0
     fi
-    
-    # Check if symlink already exists
-    if [ -L "$systemd_service" ]; then
-        print_warning "Service symlink already exists"
-        print_status "Removing existing symlink..."
-        rm -f "$systemd_service"
-    elif [ -f "$systemd_service" ]; then
-        print_warning "Service file (not symlink) already exists"
-        print_status "Backing up existing service file..."
-        mv "$systemd_service" "${systemd_service}.backup.$(date +%Y%m%d_%H%M%S)"
-    fi
-    
-    # Create symlink
-    print_status "Creating service symlink..."
-    if ln -s "$service_file" "$systemd_service"; then
-        print_success "Service symlink created"
-    else
-        print_error "Failed to create service symlink"
-        return 1
-    fi
-    
-    # Reload systemd daemon
-    print_status "Reloading systemd daemon..."
-    if systemctl daemon-reload; then
-        print_success "Systemd daemon reloaded"
-    else
-        print_error "Failed to reload systemd daemon"
-        return 1
-    fi
-    
-    return 0
+
+    usermod -a -G video "$SERVICE_USER" || die "Failed to add $SERVICE_USER user to video group"
+    print_success "User '$SERVICE_USER' added to video group"
 }
 
 # Function to create config.ini file
 create_config_file() {
-    print_status "Creating config.ini file..."
-    
     local config_file="$INSTALL_DIR/config.ini"
-    
-    # Check if config.ini already exists
+
     if [ -f "$config_file" ]; then
         print_warning "config.ini already exists"
-        read -p "Do you want to overwrite it? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        if ! confirm "Do you want to overwrite it?"; then
             print_warning "Keeping existing config.ini"
+            secure_config_file "$config_file"
             return 0
         fi
-        print_status "Backing up existing config.ini..."
         mv "$config_file" "${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+        print_status "Backed up existing config.ini"
     fi
-    
-    # Get current hostname
+
     local current_hostname
     current_hostname=$(hostname)
-    if [ -z "$current_hostname" ]; then
-        print_error "Failed to get hostname"
-        return 1
-    fi
+    [ -n "$current_hostname" ] || die "Failed to get hostname"
     print_status "Current hostname: $current_hostname"
-    
-    # Prompt for MQTT credentials
+
     echo ""
     print_status "Please provide MQTT broker configuration:"
-    read -p "MQTT Hostname [mqtt.example.com]: " mqtt_hostname
+    local mqtt_hostname mqtt_port mqtt_username mqtt_password discovery_prefix base_topic
+    local use_tls="false" tls_ca_cert="" default_port="1883"
+
+    read -r -p "MQTT Hostname [mqtt.example.com]: " mqtt_hostname
     mqtt_hostname=${mqtt_hostname:-mqtt.example.com}
-    
-    read -p "MQTT Port [1883]: " mqtt_port
-    mqtt_port=${mqtt_port:-1883}
-    
-    read -p "MQTT Username [mqttuser]: " mqtt_username
-    mqtt_username=${mqtt_username:-mqttuser}
-    
-    read -sp "MQTT Password: " mqtt_password
-    echo
-    
-    if [ -z "$mqtt_password" ]; then
-        print_error "MQTT password cannot be empty"
-        return 1
+
+    if confirm "Use TLS to connect to the broker (recommended)?"; then
+        use_tls="true"
+        default_port="8883"
+        read -r -p "CA certificate file (empty = system CA store): " tls_ca_cert
+        if [ -n "$tls_ca_cert" ] && [ ! -r "$tls_ca_cert" ]; then
+            print_warning "CA certificate file '$tls_ca_cert' not readable"
+        fi
     fi
-    
-    read -p "Discovery Prefix [homeassistant]: " discovery_prefix
+
+    read -r -p "MQTT Port [$default_port]: " mqtt_port
+    mqtt_port=${mqtt_port:-$default_port}
+    [[ $mqtt_port =~ ^[0-9]+$ ]] || die "Invalid MQTT port '$mqtt_port'"
+
+    read -r -p "MQTT Username [mqttuser]: " mqtt_username
+    mqtt_username=${mqtt_username:-mqttuser}
+
+    read -r -s -p "MQTT Password: " mqtt_password
+    echo
+    [ -n "$mqtt_password" ] || die "MQTT password cannot be empty"
+    if [[ $mqtt_password =~ ^[[:space:]]|[[:space:]]$ ]]; then
+        print_warning "Leading/trailing spaces in the password are ignored by the daemon"
+    fi
+
+    read -r -p "Discovery Prefix [homeassistant]: " discovery_prefix
     discovery_prefix=${discovery_prefix:-homeassistant}
-    
-    read -p "Base Topic [home/nodes]: " base_topic
+
+    read -r -p "Base Topic [home/nodes]: " base_topic
     base_topic=${base_topic:-home/nodes}
-    
-    # Create config.ini with provided values
+
     print_status "Writing configuration to $config_file..."
-    cat > "$config_file" << EOF
+    (
+        umask 027
+        cat > "$config_file" << EOF
 [Daemon]
 interval_in_minutes = 2
+
 [Commands]
+# NOTE: sudo based commands need the systemd unit hardening relaxed (see RMTECTRL.md)
 #shutdown = /usr/bin/sudo /sbin/shutdown -h now 'shutdown rqst via MQTT'
 #reboot = /usr/bin/sudo /sbin/shutdown -r now 'reboot rqst via MQTT'
 #restart_service = /usr/bin/sudo systemctl restart isp-rpi-reporter.service
@@ -305,80 +223,60 @@ base_topic = ${base_topic}
 sensor_name = rpi-${current_hostname}
 username = ${mqtt_username}
 password = ${mqtt_password}
+tls = ${use_tls}
 EOF
-    
-    if [ $? -eq 0 ]; then
-        print_success "config.ini created successfully"
-        print_status "Sensor name set to: rpi-${current_hostname}"
-        
-        # Set appropriate permissions
-        chmod 600 "$config_file"
-        print_success "Set secure permissions on config.ini (600)"
-        
-        return 0
-    else
-        print_error "Failed to create config.ini"
-        return 1
-    fi
-}
-
-# Function to enable service
-enable_service() {
-    print_status "Enabling $SERVICE_NAME to start on boot..."
-    
-    if systemctl is-enabled "$SERVICE_NAME" >/dev/null 2>&1; then
-        print_warning "Service is already enabled"
-        return 0
-    fi
-    
-    if systemctl enable "$SERVICE_NAME"; then
-        print_success "Service enabled successfully"
-        return 0
-    else
-        print_error "Failed to enable service"
-        return 1
-    fi
-}
-
-# Function to start service
-start_service() {
-    print_status "Starting $SERVICE_NAME..."
-    
-    if systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1; then
-        print_warning "Service is already running"
-        print_status "Restarting service..."
-        if systemctl restart "$SERVICE_NAME"; then
-            print_success "Service restarted successfully"
-            return 0
-        else
-            print_error "Failed to restart service"
-            return 1
+        if [ -n "$tls_ca_cert" ]; then
+            echo "tls_ca_cert = ${tls_ca_cert}" >> "$config_file"
         fi
+    ) || die "Failed to create config.ini"
+
+    secure_config_file "$config_file"
+    print_success "config.ini created successfully"
+    print_status "Sensor name set to: rpi-${current_hostname}"
+}
+
+# config.ini holds credentials: readable by root and the service group only
+secure_config_file() {
+    chown root:"$SERVICE_GROUP" "$1" || die "Failed to set owner of $1"
+    chmod 640 "$1" || die "Failed to set permissions on $1"
+    print_success "Set secure permissions on config.ini (root:$SERVICE_GROUP 0640)"
+}
+
+# Function to setup systemd service
+setup_systemd_service() {
+    local service_file="$INSTALL_DIR/$SERVICE_NAME"
+    local systemd_service="/etc/systemd/system/$SERVICE_NAME"
+
+    [ -f "$service_file" ] || die "Service file not found: $service_file"
+
+    if [ -L "$systemd_service" ]; then
+        rm -f "$systemd_service"
+    elif [ -f "$systemd_service" ] && ! cmp -s "$service_file" "$systemd_service"; then
+        mv "$systemd_service" "${systemd_service}.backup.$(date +%Y%m%d_%H%M%S)"
+        print_warning "Backed up existing (different) service file"
     fi
-    
-    if systemctl start "$SERVICE_NAME"; then
-        print_success "Service started successfully"
-        return 0
-    else
-        print_error "Failed to start service"
-        return 1
-    fi
+
+    install -m 0644 -o root -g root "$service_file" "$systemd_service" || die "Failed to install service file"
+    systemctl daemon-reload || die "Failed to reload systemd daemon"
+    print_success "Service file installed"
+}
+
+# Function to enable and (re)start service
+start_service() {
+    systemctl enable "$SERVICE_NAME" || die "Failed to enable service"
+    systemctl restart "$SERVICE_NAME" || die "Failed to start service"
+    print_success "Service enabled and started"
 }
 
 # Function to check service status
 check_service_status() {
-    print_status "Checking service status..."
+    sleep 3
     echo "----------------------------------------"
-    systemctl status "$SERVICE_NAME" --no-pager
+    systemctl status "$SERVICE_NAME" --no-pager || true
     echo "----------------------------------------"
-    
-    if systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1; then
-        print_success "Service is running"
-        return 0
-    else
-        print_error "Service is not running"
-        return 1
-    fi
+
+    systemctl is-active --quiet "$SERVICE_NAME" || die "Service is not running, see: journalctl -u $SERVICE_NAME"
+    print_success "Service is running"
 }
 
 # Main installation function
@@ -387,69 +285,23 @@ main() {
     echo "  RPi-Reporter-MQTT2HA-Daemon Installation Script"
     echo "========================================================================"
     echo ""
-    
-    local steps_failed=0
-    
-    # Step 1: Check root privileges
-    check_root || ((steps_failed++))
-    echo ""
-    
-    # Step 2: Check internet connectivity
-    check_internet || ((steps_failed++))
-    echo ""
-    
-    # Step 3: Install system packages
-    install_system_packages || ((steps_failed++))
-    echo ""
-    
-    # Step 4: Clone repository
-    clone_repository || ((steps_failed++))
-    echo ""
-    
-    # Step 5: Install Python requirements
-    install_python_requirements || ((steps_failed++))
-    echo ""
-    
-    # Step 6: Add daemon user to video group
-    add_user_to_video_group || ((steps_failed++))
-    echo ""
-    
-    # Step 7: Setup systemd service
-    setup_systemd_service || ((steps_failed++))
-    echo ""
-    
-    # Step 8: Create config.ini file
-    create_config_file || ((steps_failed++))
-    echo ""
-    
-    # Step 9: Enable service
-    enable_service || ((steps_failed++))
-    echo ""
-    
-    # Step 10: Start service
-    start_service || ((steps_failed++))
-    echo ""
-    
-    # Step 11: Check service status
-    check_service_status || ((steps_failed++))
-    echo ""
-    
-    # Final summary
+
+    check_root
+    check_os
+    install_system_packages
+    clone_repository
+    add_user_to_video_group
+    create_config_file
+    setup_systemd_service
+    start_service
+    check_service_status
+
     echo "========================================================================"
-    if [ $steps_failed -eq 0 ]; then
-        print_success "Installation completed successfully!"
-        echo ""
-        echo "Service logs can be viewed with:"
-        echo "  sudo journalctl -u $SERVICE_NAME -f"
-    else
-        print_error "Installation completed with $steps_failed error(s)"
-        echo ""
-        echo "Please review the errors above and try again"
-    fi
+    print_success "Installation completed successfully!"
+    echo ""
+    echo "Service logs can be viewed with:"
+    echo "  sudo journalctl -u $SERVICE_NAME -f"
     echo "========================================================================"
 }
 
-# Run main function
-main
-
-exit 0
+main "$@"

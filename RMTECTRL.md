@@ -83,6 +83,24 @@ The new content in `config.ini.dist` should look like something like this:
                                              
 ## Configuring the Daemon
 
+> **Security / sandbox note (v2.0.0+)**
+>
+> - Commands are executed **without a shell** and the MQTT **payload is ignored**. Retained command messages are ignored too.
+> - Anyone able to publish to `{BASE_TOPIC}/command/{SENSOR_NAME}/+` can press these buttons: restrict that topic with broker ACLs and use TLS.
+> - The provided `isp-rpi-reporter.service` is sandboxed with `NoNewPrivileges=yes`, an empty capability bounding set and `RestrictSUIDSGID=yes`. These **block sudo**, so the sudo based examples below will fail until you relax the unit with a drop-in (`sudo systemctl edit isp-rpi-reporter.service`), for example:
+>
+>   ```ini
+>   [Service]
+>   NoNewPrivileges=no
+>   RestrictSUIDSGID=no
+>   CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+>   RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+>   ReadWritePaths=-/run/sudo
+>   ```
+>
+>   This override is a starting point and has not been verified on every setup: check `journalctl -u isp-rpi-reporter.service` after pressing a button. Relaxing the sandbox lowers the protection of the whole daemon.
+> - Restrict sudoers to the exact command lines (e.g. `/sbin/shutdown -r now *`), not the bare binary.
+
 By adding commands you'd like to initiate remotely to your configuration file `config.ini` you will then be able to execute these commands on the monitored Raspberry Pis using MQTT, meaning yes, from buttons in your Home Assistant interface!
 
 After adding the comamnds to your `config.ini`, you then need to accomplish a couple more steps to activate these commands.  Here is the overall list of 4 steps \[S1-S4\]  we need to take:
@@ -255,8 +273,8 @@ This was originally built by copying the card suggested by looking at the RPi De
 
 ### [Copyright](copyright) | [License](LICENSE)
 
-[commits-shield]: https://img.shields.io/github/commit-activity/y/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[commits]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/commits/master
+[commits-shield]: https://img.shields.io/github/commit-activity/y/xorguy/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
+[commits]: https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/commits/master
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[releases]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/releases
+[releases-shield]: https://img.shields.io/github/release/xorguy/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
+[releases]: https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/releases
