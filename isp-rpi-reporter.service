@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=notify
 User=daemon
 Group=daemon
-# vcgencmd needs /dev/vchiq or /dev/vcio (group video)
+# vcgencmd needs /dev/vcio_gencmd (group video)
 SupplementaryGroups=video
 WorkingDirectory=/opt/RPi-Reporter-MQTT2HA-Daemon/
 ExecStart=/usr/bin/python3 -u /opt/RPi-Reporter-MQTT2HA-Daemon/ISP-RPi-mqtt-daemon.py
@@ -27,8 +27,7 @@ ProtectSystem=strict
 ProtectHome=read-only
 PrivateTmp=yes
 DevicePolicy=closed
-DeviceAllow=/dev/vchiq rw
-DeviceAllow=/dev/vcio rw
+DeviceAllow=/dev/vcio_gencmd rw
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes

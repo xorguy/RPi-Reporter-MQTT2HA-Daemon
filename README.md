@@ -28,6 +28,7 @@ Additional pages:
 - [Controlling your RPi from Home Assistant](./RMTECTRL.md) - (Optional) Set up to allow remote control from HA
 - [In practice: Advertisements to HA](./HA-ADVERT.md) - Details of the actual advertisements this Daemon publishes to MQTT
 - [The Associated Lovelace RPi Monitor Card](https://github.com/ironsheep/lovelace-rpi-monitor-card) - This is our companion Lovelace Card that makes displaying this RPi Monitor data very easy
+- [Running in Docker](./DOCKER.md) - least privilege container image
 - [ChangeLog](./ChangeLog) - We've been repairing or adding features to this script as users report issues or wishes. This is our list of changes
 
 ## Features
@@ -129,6 +130,10 @@ sudo bash install_rpi_reporter_mqtt.sh
 ```
 
 The installer installs the apt packages, clones the repo to `/opt/RPi-Reporter-MQTT2HA-Daemon`, adds the `daemon` user to the `video` group, writes `config.ini` (owner `root:daemon`, mode `0640`), installs the hardened systemd unit and starts it.
+
+### Docker
+
+A least privilege `linux/arm64` image is published as [`xorguy/rpi-reporter-mqtt2ha`](https://hub.docker.com/r/xorguy/rpi-reporter-mqtt2ha). See [DOCKER.md](./DOCKER.md).
 
 ### Manual install
 

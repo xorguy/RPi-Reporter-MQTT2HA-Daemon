@@ -1,0 +1,4 @@
+# Only the daemon script and the pinned Raspberry Pi keyring are needed in the build context
+*
+!ISP-RPi-mqtt-daemon.py
+!docker/raspberrypi-archive-keyring.pgp

@@ -1,0 +1,35 @@
+# RPi Reporter MQTT2HA Daemon - least privilege container setup, see DOCKER.md
+services:
+  rpi-reporter:
+    image: xorguy/rpi-reporter-mqtt2ha:latest
+    container_name: rpi-reporter
+    restart: unless-stopped
+    # host network: stable MAC based device id in Home Assistant, real IPs/traffic, host name
+    network_mode: host
+    read_only: true
+    # apt needs a scratch dir to verify the host package lists
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # host "video" group (getent group video) for /dev/vcio_gencmd used by vcgencmd
+    group_add:
+      - "44"
+    devices:
+      - /dev/vcio_gencmd:/dev/vcio_gencmd
+    pids_limit: 64
+    mem_limit: 192m
+    volumes:
+      # config.ini on the host: chown root:65534 config.ini && chmod 0640 config.ini
+      - ./config.ini:/etc/rpi-reporter/config.ini:ro
+      - /etc/localtime:/etc/localtime:ro
+      # host OS release + root filesystem usage
+      - /etc/os-release:/host/etc/os-release:ro
+      # pending updates / last update date
+      - /etc/apt:/host/etc/apt:ro
+      - /var/lib/apt:/host/var/lib/apt:ro
+      - /var/lib/dpkg:/host/var/lib/dpkg:ro
+      # optional: extra drives to report, mounted below /host
+      # - /media/usb:/host/media/usb:ro
