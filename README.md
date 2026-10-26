@@ -8,7 +8,7 @@ A simple Linux python script to query the Raspberry Pi on which it is running fo
 
 ![Discovery image](./Docs/images/DiscoveryV4.png)
 
-This script should be run continuously in the background as a systemd service. Instructions are provided below.
+This script should be run continuously in the background, either as a hardened systemd service or as a least privilege Docker container (current version **2.2.0**, image [`xorguy/rpi-reporter-mqtt2ha`](https://hub.docker.com/r/xorguy/rpi-reporter-mqtt2ha)). Instructions are provided below.
 
 ## Table of Contents
 
@@ -41,6 +41,8 @@ Additional pages:
 - MQTT authentication and TLS support
 - Runs as the unprivileged `daemon` user inside a hardened systemd sandbox
 - Linux daemon / systemd service, sd_notify messages generated
+- Docker image (`linux/arm64`): non-root, no capabilities, read-only filesystem, host state from read-only mounts (see [DOCKER.md](./DOCKER.md))
+- Small memory footprint (~15 MB resident): the pending updates check runs in a short-lived child process and maps the prebuilt apt cache instead of building its own
 
 ### RPi Device
 
@@ -51,7 +53,7 @@ Each RPi device is reported as:
 | `Manufacturer` | Raspberry Pi (Trading) Ltd.                  |
 | `Model`        | RPi 4 Model B v1.1                           |
 | `Name`         | (fqdn) pimon1.home                           |
-| `sofware ver`  | OS Name, Version (e.g., Buster v4.19.75v7l+) |
+| `sofware ver`  | OS Name, Version (e.g., trixie 6.12.47+rpt-rpi-v8) |
 
 ### RPi MQTT Topics
 
@@ -77,14 +79,16 @@ The monitored topic reports the following information:
 | `temp_gpu_c`        |                    | GPU temperature, in [°C] (0.1°C resolution)                                                                             |
 | `temp_cpu_c`        |                    | CPU temperature, in [°C] (0.1°C resolution)                                                                             |
 | `up_time`           |                    | duration since last booted, as [days]                                                                                   |
+| `up_time_secs`      |                    | duration since last booted, in [seconds]                                                                                |
+| `ux_updates`        |                    | number of pending package updates (-1 when apt is not available)                                                        |
 | `last_update`       |                    | updates last applied, as [date]                                                                                         |
 | `fs_total_gb`       |                    | / (root) total space in [GBytes]                                                                                        |
 | `fs_free_prcnt`     |                    | / (root) available space [%]                                                                                            |
 | `fs_used_prcnt`     |                    | / (root) used space [%] (used by HA sensor)                                                                             |
 | `host_name`         |                    | hostname                                                                                                                |
 | `fqdn`              |                    | hostname.domain                                                                                                         |
-| `ux_release`        |                    | os release name (e.g., buster)                                                                                          |
-| `ux_version`        |                    | os version (e.g., 4.19.66-v7+)                                                                                          |
+| `ux_release`        |                    | os release name (e.g., trixie)                                                                                          |
+| `ux_version`        |                    | os version (e.g., 6.12.47+rpt-rpi-v8)                                                                                   |
 | `reporter`          |                    | script name, version running on RPi                                                                                     |
 | `networking`        |                    | lists for each interface: interface name, mac address (and IP if the interface is connected)                            |
 | `drives`            |                    | lists for each drive mounted: size in GB, % used, device and mount point                                                |
@@ -133,7 +137,18 @@ The installer installs the apt packages, clones the repo to `/opt/RPi-Reporter-M
 
 ### Docker
 
-A least privilege `linux/arm64` image is published as [`xorguy/rpi-reporter-mqtt2ha`](https://hub.docker.com/r/xorguy/rpi-reporter-mqtt2ha). See [DOCKER.md](./DOCKER.md).
+A least privilege `linux/arm64` image is published as [`xorguy/rpi-reporter-mqtt2ha`](https://hub.docker.com/r/xorguy/rpi-reporter-mqtt2ha) (tags `latest` and the daemon version, currently `2.2.0`; 64-bit Raspberry Pi OS / Debian Trixie hosts).
+
+```shell
+mkdir -p ~/rpi-reporter && cd ~/rpi-reporter
+curl -fsSLO https://raw.githubusercontent.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/master/docker-compose.yml
+curl -fsSL -o config.ini https://raw.githubusercontent.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/master/config.ini.dist
+vi config.ini                                   # MQTT broker, credentials, tls...
+sudo chown root:65534 config.ini && sudo chmod 0640 config.ini
+docker compose up -d
+```
+
+The container runs as `nobody`, with no capabilities, a read-only filesystem and host network, and only the `/dev/vcio_gencmd` device. Host OS release, apt/dpkg state and the apt cache come from read-only mounts. It uses ~15 MB of memory. `[Commands]` (reboot, shutdown...) are not available in the container. Upgrading from 2.1.0: add the optional `/var/cache/apt:/host/var/cache/apt:ro` mount from the new `docker-compose.yml` to keep the update check peak low. Full details, options and troubleshooting: [DOCKER.md](./DOCKER.md).
 
 ### Manual install
 
@@ -265,24 +280,24 @@ systemctl status isp-rpi-reporter.service
 
 ## Integration
 
-When this script is running data will be published to the (configured) MQTT broker topic "`raspberrypi/{hostname}/...`" (e.g. `raspberrypi/picam01/...`).
+When this script is running data will be published to the (configured) MQTT broker topic "`{base_topic}/sensor/{sensor_name}/monitor`" (defaults: `home/nodes/sensor/rpi-{hostname}/monitor`), with the availability (`online` / `offline`) in "`{base_topic}/sensor/{sensor_name}/status`".
 
 An example:
 
 ```json
 {
   "info": {
-    "timestamp": "2023-03-01T15:37:06-07:00",
+    "timestamp": "2026-10-26T15:37:06+01:00",
     "rpi_model": "RPi 4 Model B r1.5",
     "ifaces": "e,w,b",
     "host_name": "pip2iotgw",
     "fqdn": "pip2iotgw.home",
-    "ux_release": "bullseye",
-    "ux_version": "5.15.84-v8+",
+    "ux_release": "trixie",
+    "ux_version": "6.12.47+rpt-rpi-v8",
     "ux_updates": 3,
     "up_time": "21:08",
     "up_time_secs": 76080,
-    "last_update": "2023-02-28T18:11:41-07:00",
+    "last_update": "2026-10-26T07:00:01+01:00",
     "fs_total_gb": 32,
     "fs_free_prcnt": 81,
     "fs_used_prcnt": 19,
@@ -295,8 +310,8 @@ An example:
       "wlan0": {
         "IP": "192.168.100.196",
         "mac": "e4:5f:01:f8:18:02",
-        "rx_data": 31954,
-        "tx_data": 8883
+        "rx_data": 70,
+        "tx_data": 101
       }
     },
     "drives": {
@@ -331,8 +346,8 @@ An example:
     "temperature_c": 28.7,
     "temp_gpu_c": 28.7,
     "temp_cpu_c": 28.2,
-    "reporter": "ISP-RPi-mqtt-daemon v1.8.3",
-    "reporter_releases": "v1.8.2,v1.7.2,v1.7.3,v1.7.4",
+    "reporter": "ISP-RPi-mqtt-daemon v2.2.0",
+    "reporter_releases": "",
     "report_interval": 5
   }
 }
