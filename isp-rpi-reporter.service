@@ -1,21 +1,51 @@
 [Unit]
 Description=RPi Reporter MQTT Client/Daemon
-Documentation=https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon
-After=network.target mosquitto.service network-online.target
+Documentation=https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon
+After=network-online.target mosquitto.service
 Wants=network-online.target
-Requires=network.target
 
 [Service]
 Type=notify
 User=daemon
 Group=daemon
+# vcgencmd needs /dev/vchiq or /dev/vcio (group video)
+SupplementaryGroups=video
 WorkingDirectory=/opt/RPi-Reporter-MQTT2HA-Daemon/
 ExecStart=/usr/bin/python3 -u /opt/RPi-Reporter-MQTT2HA-Daemon/ISP-RPi-mqtt-daemon.py
 StandardOutput=null
 StandardError=journal
 Environment=PYTHONUNBUFFERED=1
-Restart=always
-RestartSec=3
+Restart=on-failure
+RestartSec=10
+
+# --- Sandboxing (check with: systemd-analyze security isp-rpi-reporter.service)
+# NOTE: NoNewPrivileges blocks sudo, so sudo based [Commands] will not work
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+DevicePolicy=closed
+DeviceAllow=/dev/vchiq rw
+DeviceAllow=/dev/vcio rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

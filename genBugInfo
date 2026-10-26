@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT=${0##*/}
-SCRIPT_VERSION="1.1"
+SCRIPT_VERSION="1.2"
 
 #  change seperator from whitespace to not
 SAVEIFS=$IFS
@@ -220,21 +220,21 @@ fi
 
 # ----------------------------------------------------------------------
 
-showCommand "/bin/cat /etc/apt/sources.list | /bin/egrep -v '#'"
+showCommand "/bin/cat /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null | /bin/grep -E -v '^#'"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' 
+/bin/cat /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null | /bin/grep -E -v '^#' 
 else 
-/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' >>${OUTFILE} 2>&1
+/bin/cat /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null | /bin/grep -E -v '^#' >>${OUTFILE} 2>&1
 fi
 endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print \$3 }' | /bin/grep . | /usr/bin/sort -u | head -1"
+showCommand "/bin/cat /etc/os-release"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print $3 }' | /bin/grep . | /usr/bin/sort -u | head -1
+/bin/cat /etc/os-release
 else 
-/bin/cat /etc/apt/sources.list | /bin/egrep -v '#' | /usr/bin/awk '{ print $3 }' | /bin/grep . | /usr/bin/sort -u  | head -1 >>${OUTFILE} 2>&1
+/bin/cat /etc/os-release >>${OUTFILE} 2>&1
 fi
 endCommand
 # ----------------------------------------------------------------------
@@ -269,31 +269,31 @@ endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "/sbin/ifconfig"
+showCommand "/bin/ip address"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/sbin/ifconfig
+/bin/ip address
 else 
-/sbin/ifconfig >>${OUTFILE} 2>&1
+/bin/ip address >>${OUTFILE} 2>&1
 fi
 endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "/sbin/ifconfig | /bin/egrep 'Link|flags|inet|ether' | /bin/egrep -v -i 'lo:|loopback|inet6|\:\:1|127\.0\.0\.1'"
+showCommand "/bin/ip -4 -brief address"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/sbin/ifconfig | /bin/egrep 'Link|flags|inet|ether' | /bin/egrep -v -i 'lo:|loopback|inet6|\:\:1|127\.0\.0\.1'
+/bin/ip -4 -brief address
 else 
-/sbin/ifconfig | /bin/egrep 'Link|flags|inet|ether' | /bin/egrep -v -i 'lo:|loopback|inet6|\:\:1|127\.0\.0\.1' >>${OUTFILE} 2>&1
+/bin/ip -4 -brief address >>${OUTFILE} 2>&1
 fi
 endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "/sbin/route"
+showCommand "/bin/ip route"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/sbin/route
+/bin/ip route
 else 
-/sbin/route >>${OUTFILE} 2>&1
+/bin/ip route >>${OUTFILE} 2>&1
 fi
 endCommand
 
@@ -329,21 +329,21 @@ endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "/bin/df -m | /usr/bin/tail -n +2 | /bin/egrep -v 'tmpfs|boot'"
+showCommand "/bin/df -m | /usr/bin/tail -n +2 | /bin/grep -E -v 'tmpfs|boot'"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-/bin/df -m | /usr/bin/tail -n +2 | /bin/egrep -v 'tmpfs|boot'
+/bin/df -m | /usr/bin/tail -n +2 | /bin/grep -E -v 'tmpfs|boot'
 else 
-/bin/df -m | /usr/bin/tail -n +2 | /bin/egrep -v 'tmpfs|boot' >>${OUTFILE} 2>&1
+/bin/df -m | /usr/bin/tail -n +2 | /bin/grep -E -v 'tmpfs|boot' >>${OUTFILE} 2>&1
 fi
 endCommand
 
 # ----------------------------------------------------------------------
 
-showCommand "ls -l /opt/vc/bin/vcgencmd /usr/bin/vcgencmd"
+showCommand "ls -l /usr/bin/vcgencmd /dev/vchiq /dev/vcio"
 if [ ${VERBOSE_LEVEL} -gt 0 -a -z "${WITHOUT_DOING}" ]; then
-ls -l /opt/vc/bin/vcgencmd /usr/bin/vcgencmd
+ls -l /usr/bin/vcgencmd /dev/vchiq /dev/vcio
 else 
-ls -l /opt/vc/bin/vcgencmd /usr/bin/vcgencmd >>${OUTFILE} 2>&1
+ls -l /usr/bin/vcgencmd /dev/vchiq /dev/vcio >>${OUTFILE} 2>&1
 fi
 endCommand
 

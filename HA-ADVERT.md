@@ -79,7 +79,7 @@ The `~/monitor` advertisement:
   "stat_t": "~/monitor",
   "val_tpl": "{{ value_json.info.timestamp }}",
   "~": "{BASE_TOPIC}/sensor/{SENSOR_NAME}",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:raspberry-pi",
@@ -110,7 +110,7 @@ The `~/temperature` advertisement:
   "stat_t": "~/monitor",
   "val_tpl": "{{ value_json.info.temperature_c }}",
   "~": "{BASE_TOPIC}/sensor/{SENSOR_NAME}",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:thermometer",
@@ -132,7 +132,7 @@ The `~/disk_used` advertisement:
   "stat_t": "~/monitor",
   "val_tpl": "{{ value_json.info.fs_used_prcnt }}",
   "~": "{BASE_TOPIC}/sensor/{SENSOR_NAME}",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:sd",
@@ -154,7 +154,7 @@ The `~/cpu_load` advertisement:
   "stat_t": "~/monitor",
   "val_tpl": "{{ value_json.info.cpu.load_5min_prcnt }}",
   "~": "{BASE_TOPIC}/sensor/{SENSOR_NAME}",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:cpu-64-bit",
@@ -176,7 +176,7 @@ The `~/mem_used` advertisement:
   "stat_t": "~/monitor",
   "val_tpl": "{{ value_json.info.mem_used_prcnt }}",
   "~": "{BASE_TOPIC}/sensor/{SENSOR_NAME}",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:memory",
@@ -206,8 +206,7 @@ The `~/shutdown` Command advertisement:
   "uniq_id": "RPi-e45f01Monf81801_shutdown",
   "~": "{BASE_TOPIC}/command/{SENSOR_NAME}",
   "cmd_t": "~/shutdown",
-  "json_attr_t": "~/shutdown/attributes",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:power-sleep",
@@ -227,8 +226,7 @@ The `~/reboot` Command advertisement:
   "uniq_id": "RPi-e45f01Monf81801_reboot",
   "~": "{BASE_TOPIC}/command/{SENSOR_NAME}",
   "cmd_t": "~/reboot",
-  "json_attr_t": "~/reboot/attributes",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:restart",
@@ -248,8 +246,7 @@ The `~/restart_service` Command advertisement:
   "uniq_id": "RPi-e45f01Monf81801_restart_service",
   "~": "{BASE_TOPIC}/command/{SENSOR_NAME}",
   "cmd_t": "~/restart_service",
-  "json_attr_t": "~/restart_service/attributes",
-  "avty_t": "~/status",
+  "avty_t": "{BASE_TOPIC}/sensor/{SENSOR_NAME}/status",
   "pl_avail": "online",
   "pl_not_avail": "offline",
   "ic": "mdi:cog-counterclockwise",
@@ -280,8 +277,8 @@ The `~/restart_service` Command advertisement:
 
 ### [Copyright](copyright) | [License](LICENSE)
 
-[commits-shield]: https://img.shields.io/github/commit-activity/y/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[commits]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/commits/master
+[commits-shield]: https://img.shields.io/github/commit-activity/y/xorguy/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
+[commits]: https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/commits/master
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/ironsheep/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
-[releases]: https://github.com/ironsheep/RPi-Reporter-MQTT2HA-Daemon/releases
+[releases-shield]: https://img.shields.io/github/release/xorguy/RPi-Reporter-MQTT2HA-Daemon.svg?style=for-the-badge
+[releases]: https://github.com/xorguy/RPi-Reporter-MQTT2HA-Daemon/releases
